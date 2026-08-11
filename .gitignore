@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+
+# Model weights (large files — store in models/ but exclude from git)
+models/fiqa/
+models/phrasebank/
+models/twitter/
+models/finance_news/
+models/general_finbert/
+models/meta_learner/*.pkl
+models/meta_learner/*.pt
+
+# Raw data (store locally, do not commit)
+data/raw/finance_news/dataset.csv
+data/raw/phrasebank/Sentences_AllAgree.txt
+
+# Processed data (reproducible from raw)
+data/interim/
+data/processed/
+
+# Outputs (reproducible from experiments)
+outputs/metrics/*.csv
+outputs/figures/
+outputs/predictions/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
