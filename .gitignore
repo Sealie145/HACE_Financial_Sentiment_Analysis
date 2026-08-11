@@ -18,7 +18,7 @@ env/
 # Environment
 .env
 
-# Model weights (large files — store in models/ but exclude from git)
+# Model weights
 models/fiqa/
 models/phrasebank/
 models/twitter/
@@ -27,15 +27,14 @@ models/general_finbert/
 models/meta_learner/*.pkl
 models/meta_learner/*.pt
 
-# Raw data (store locally, do not commit)
-data/raw/finance_news/dataset.csv
-data/raw/phrasebank/Sentences_AllAgree.txt
+# Raw data
+data/raw/
 
-# Processed data (reproducible from raw)
+# Processed data
 data/interim/
 data/processed/
 
-# Outputs (reproducible from experiments)
+# Outputs
 outputs/metrics/*.csv
 outputs/figures/
 outputs/predictions/
