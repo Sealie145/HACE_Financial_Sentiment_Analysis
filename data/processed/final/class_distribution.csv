@@ -1,0 +1,12 @@
+split,rows,negative,neutral,positive
+FiQA Train,770,224,64,482
+FiQA Validation,111,39,9,63
+FiQA Test,230,83,12,135
+Twitter Train,9540,1442,1922,6176
+Twitter Validation,2388,347,475,1566
+PhraseBank Train,1807,242,1109,456
+PhraseBank Validation,226,30,139,57
+PhraseBank Test,226,31,138,57
+Finance News Train,25928,8657,8600,8671
+Finance News Validation,3241,1082,1075,1084
+Finance News Test,3241,1082,1075,1084
