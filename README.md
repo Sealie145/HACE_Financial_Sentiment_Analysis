@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # HACE — Hedging-Aware Cross-Domain Ensemble
 **Financial Sentiment Analysis with Uncertainty Awareness**
 
@@ -79,6 +78,4 @@ All random seeds are fixed via `src/utils/seed.py`. Pinned dependency versions a
 ## License
 
 Research use only. Not for investment or trading decisions.
-=======
-# HACE_Financial_Sentiment_Analysis
->>>>>>> origin/main
+
