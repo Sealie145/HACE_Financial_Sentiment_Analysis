@@ -75,6 +75,44 @@ See `data/raw/*/README.md` for dataset acquisition instructions.
 
 All random seeds are fixed via `src/utils/seed.py`. Pinned dependency versions are in `requirements.txt`.
 
+## Hedging detection
+
+`src.hedging.HedgeDetector` is a lightweight, rule-based auxiliary feature
+layer. It detects token-aware financial hedging cues (modals, epistemic and
+uncertainty terms, approximators, and conditional phrases) without changing
+the input text or sentiment labels.
+
+```python
+from src.hedging.detector import HedgeDetector
+
+HedgeDetector().detect("Results may improve depending on market conditions.").to_dict()
+```
+
+Version 1's `hedge_probability` is a deterministic lexicon-derived confidence
+score, **not** a calibrated machine-learning probability. Run the FiQA sanity
+check with `notebooks/02_hedging_detection.ipynb`; it writes only the enriched
+output to `data/interim/fiqa_hedging.csv`, preserving raw data unchanged.
+
+Run the dependency-free tests with:
+
+```bash
+python -m unittest tests/test_hedging.py
+```
+
+## API demo
+
+The FastAPI application currently combines real hedge detection with clearly
+marked deterministic mock predictions for the four future FinBERT experts and
+the final sentiment. It does not load model checkpoints or a meta-learner.
+
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
+
+Open Swagger documentation at `http://127.0.0.1:8000/docs`. The `POST /predict`
+response includes the nested `hedging` object and mock `fiqa`, `twitter`,
+`phrasebank`, and `finance_news` experts.
+
 ## License
 
 Research use only. Not for investment or trading decisions.

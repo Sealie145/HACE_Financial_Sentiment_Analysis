@@ -12,6 +12,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.schemas import (
     BatchPredictRequest,
@@ -43,8 +44,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:7860", "http://127.0.0.1:7860"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
+@app.get("/")
+def root() -> dict[str, str]:
+    """Basic API discovery endpoint."""
+    return {"message": "HACE Financial Sentiment Analysis API", "status": "running"}
+
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
