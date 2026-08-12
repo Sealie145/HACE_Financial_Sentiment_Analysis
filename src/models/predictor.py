@@ -15,7 +15,7 @@ from src.utils.config import config
 
 
 # Canonical expert keys (order matters for feature vector assembly)
-EXPERT_KEYS = ["fiqa", "phrasebank", "twitter", "general"]
+EXPERT_KEYS = ["fiqa", "phrasebank", "twitter", "finance_news", "general"]
 
 
 class ExpertPredictor:

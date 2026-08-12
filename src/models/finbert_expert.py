@@ -34,7 +34,7 @@ class FinBERTExpert:
         self.domain = domain
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(str(model_path),use_fast=False)        
+        self.tokenizer = AutoTokenizer.from_pretrained(str(model_path))
         self.model = AutoModelForSequenceClassification.from_pretrained(str(model_path))
         self.model.eval()
         self.model.to(self.device)
