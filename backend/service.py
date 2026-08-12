@@ -1,92 +1,233 @@
-"""Inference service shell with real hedge detection and mock sentiment outputs.
+"""
+service.py — Real HACE inference service.
 
-Trained FinBERT experts and the HACE meta-learner are deliberately not loaded
-here.  They can replace the mock prediction section without changing the API.
+Loads:
+- Five trained FinBERT experts
+- HACE meta-learner
+- Hedge detector
+- Feature fusion
 """
 
 from __future__ import annotations
 
-from typing import Protocol
+import numpy as np
 
+from src.models.predictor import ExpertPredictor
+from src.ensemble.feature_fusion import FeatureFusion
+from src.ensemble.meta_learner import MetaLearner
 from src.hedging.detector import HedgeDetector
-
-
-class ExpertPredictor(Protocol):
-    """Interface that trained expert adapters will implement later."""
-
-    def predict_all(self, text: str) -> dict[str, dict]: ...
-
-
-class MockExpertPredictor:
-    """MOCK ONLY — replace with trained FinBERT expert adapters later."""
-
-    _PREDICTIONS = {
-        "fiqa": ("positive", 0.82),
-        "twitter": ("positive", 0.79),
-        "phrasebank": ("positive", 0.87),
-        "finance_news": ("neutral", 0.61),
-    }
-
-    def predict_all(self, text: str) -> dict[str, dict]:
-        """Return stable demo values; text is unused by design for now."""
-        return {
-            name: {
-                "sentiment": sentiment,
-                "confidence": confidence,
-                "probabilities": self._probabilities(sentiment, confidence),
-            }
-            for name, (sentiment, confidence) in self._PREDICTIONS.items()
-        }
-
-    @staticmethod
-    def _probabilities(sentiment: str, confidence: float) -> dict[str, float]:
-        remaining = round((1.0 - confidence) / 2, 2)
-        probabilities = {"negative": remaining, "neutral": remaining, "positive": remaining}
-        probabilities[sentiment] = confidence
-        return probabilities
+from src.utils.config import config
 
 
 class HACEService:
-    """Provide an API-facing prediction interface for the HACE application."""
 
-    def __init__(self, expert_predictor: ExpertPredictor | None = None) -> None:
+    def __init__(self) -> None:
+        self._expert_predictor = None
+        self._hace_model = None
+
         self._hedge_detector = HedgeDetector()
-        self._expert_predictor = expert_predictor or MockExpertPredictor()
+
+        self._hace_fusion = FeatureFusion(
+            use_hedge_features=True
+        )
+
         self._loaded = False
 
+    # ============================================================
+    # LOAD MODELS
+    # ============================================================
+
     def load(self) -> None:
-        """Mark the lightweight service ready; no ML models are loaded."""
+
+        print("=" * 60)
+        print("LOADING HACE MODELS")
+        print("=" * 60)
+
+        # --------------------------------------------------------
+        # Load five experts
+        # --------------------------------------------------------
+
+        print("\nLoading expert models...")
+
+        self._expert_predictor = ExpertPredictor(
+            models_dir=config.models_dir,
+            device=None
+        )
+
+        self._expert_predictor.load_all()
+
+        print("✓ Five expert models loaded")
+
+        # --------------------------------------------------------
+        # Load HACE meta-learner
+        # --------------------------------------------------------
+
+        meta_path = (
+            config.models_dir
+            / "meta_learner"
+            / "hace_meta_learner.pkl"
+        )
+
+        if not meta_path.exists():
+            raise FileNotFoundError(
+                f"HACE meta-learner not found: {meta_path}"
+            )
+
+        print("\nLoading HACE meta-learner...")
+        print("Path:", meta_path)
+
+        self._hace_model = MetaLearner.load(
+            meta_path,
+            use_hedge_features=True
+        )
+
+        print("✓ HACE meta-learner loaded")
+
         self._loaded = True
+
+        print("\n" + "=" * 60)
+        print("✓ HACE SERVICE READY")
+        print("=" * 60)
+
+    # ============================================================
+    # STATUS
+    # ============================================================
 
     @property
     def is_loaded(self) -> bool:
         return self._loaded
 
+    # ============================================================
+    # PREDICT
+    # ============================================================
+
     def predict(self, text: str) -> dict:
-        """Return real hedging features and deterministic mock predictions."""
+
         if not self._loaded:
-            raise RuntimeError("HACEService is not loaded. Call load() first.")
+            raise RuntimeError(
+                "HACEService is not loaded. Call load() first."
+            )
+
         if not isinstance(text, str) or not text.strip():
             raise ValueError("Text must not be empty.")
 
+        # --------------------------------------------------------
+        # 1. Expert predictions
+        # --------------------------------------------------------
+
+        expert_predictions = (
+            self._expert_predictor.predict_all(text)
+        )
+
+        expert_probas = (
+            self._expert_predictor.predict_proba_all(text)
+        )
+
+        # --------------------------------------------------------
+        # 2. Hedge detection
+        # --------------------------------------------------------
+
         hedge = self._hedge_detector.detect(text)
-        experts = self._expert_predictor.predict_all(text)
-        hedging = hedge.to_dict()
+
+        # --------------------------------------------------------
+        # 3. Build 21 HACE features
+        # --------------------------------------------------------
+
+        X = self._hace_fusion.assemble(
+            expert_probas=expert_probas,
+            hedge_features=hedge,
+            text=text
+        )
+
+        assert X.shape == (21,)
+
+        # --------------------------------------------------------
+        # 4. HACE prediction
+        # --------------------------------------------------------
+
+        prediction = self._hace_model.predict_single(X)
+
+        # --------------------------------------------------------
+        # 5. Expert agreement
+        # --------------------------------------------------------
+
+        expert_labels = [
+            int(np.argmax(expert_probas[key]))
+            for key in expert_probas
+        ]
+
+        if expert_labels:
+
+            plurality = max(
+                set(expert_labels),
+                key=expert_labels.count
+            )
+
+            agreement = (
+                expert_labels.count(plurality)
+                / len(expert_labels)
+            )
+
+        else:
+            agreement = 0.0
+
+        # --------------------------------------------------------
+        # 6. Explanation
+        # --------------------------------------------------------
+
+        explanation = []
+
+        explanation.append(
+            f"HACE predicted {prediction['sentiment']} "
+            f"sentiment with "
+            f"{prediction['confidence']:.4f} confidence."
+        )
+
+        if hedge.hedge_flag:
+
+            explanation.append(
+                "Hedging language detected: "
+                + ", ".join(hedge.detected_terms)
+            )
+
+        else:
+
+            explanation.append(
+                "No predefined financial hedging cues detected."
+            )
+
+        # --------------------------------------------------------
+        # 7. Response
+        # --------------------------------------------------------
+
         return {
             "text": text,
-            "sentiment": "positive",
-            "confidence": 0.84,
-            "hedging": hedging,
-            # Legacy flat fields remain available for the existing Gradio formatter.
+
+            "sentiment": prediction["sentiment"],
+
+            "confidence": prediction["confidence"],
+
+            "hedging": hedge.to_dict(),
+
             "hedge_probability": hedge.hedge_probability,
+
             "hedge_count": hedge.hedge_count,
+
             "hedge_density": hedge.hedge_density,
+
             "hedge_words": hedge.detected_terms,
-            "experts": experts,
-            "expert_agreement": 1.0,
-            "base_ensemble": {"sentiment": "positive", "confidence": 0.84},
-            "explanation": [
-                "Sentiment and expert outputs are deterministic placeholders.",
-                "Hedging features are produced by the rule-based lexicon detector.",
-            ],
+
+            "experts": expert_predictions,
+
+            "expert_agreement": round(
+                float(agreement),
+                4
+            ),
+
+            "base_ensemble": {
+                "sentiment": prediction["sentiment"],
+                "confidence": prediction["confidence"],
+            },
+
+            "explanation": explanation,
         }
